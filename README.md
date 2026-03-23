@@ -1,290 +1,334 @@
-# Project Alabama — Starter Kit
+![Project Alabama demo](./public/readme/alabama.jpg)
 
-A full-stack, AI-powered security operations dashboard for insider-threat detection.
-Built with Next.js 16, Prisma, Neon PostgreSQL, Google Gemini, and Tailwind CSS 4.
+# Project Alabama
 
----
+Project Alabama is a full-stack, LLM-assisted security analytics app for insider-threat and suspicious activity detection. It ingests enterprise log events, normalizes and stores them in PostgreSQL, runs rule-based detections, and helps analysts investigate findings through a security operations dashboard with Gemini-generated explanations.
 
-## What You Are Building
+## What It Does
 
-A Security Operations Console (SOC) dashboard that:
+Alabama is designed to feel like a lightweight SOC console for demos, prototypes, and portfolio use cases. The app lets you:
 
-- Ingests raw log events from APIs or uploaded files
-- Runs four rule-based anomaly detections automatically
-- Raises alerts with risk scores and severity levels
-- Lets analysts triage alerts, add notes, and update status
-- Calls Google Gemini to generate AI-powered explanations
-- Tracks mock cloud integration connections (AWS, GCP, Azure, GitHub, Slack)
+- seed realistic demo data for instant exploration
+- ingest raw JSON event payloads through an API or UI
+- upload log files in multiple formats and convert them into normalized events
+- detect suspicious behavior with built-in anomaly rules
+- review alerts, related events, notes, and status changes
+- generate AI summaries and next-step guidance for alerts and uploaded log batches
+- track mock integration connections for providers like AWS, GCP, Azure, GitHub, and Slack
 
----
+## Core Experience
+
+The main UI is a `Next.js` App Router dashboard with four primary workflows:
+
+- `Alerts`: review alert volume, severity, status, context, related events, and analyst notes
+- `Log Upload`: upload a log file and receive parsed event ingestion plus an AI risk summary
+- `Raw Ingest`: submit JSON directly to the ingestion API from the browser
+- `Integrations`: store connection state metadata for supported providers
+
+The dashboard also supports:
+
+- live refresh polling
+- search by alert user or summary
+- status and severity filters
+- AI model selection with local persistence
+- demo seed and reset actions
+
+## Detection Rules
+
+The built-in rule engine currently generates anomalies and alerts from four detection patterns:
+
+1. `OFF_HOURS_PRIVILEGED_ACTION`
+   Privileged actions such as `delete`, `download`, `export`, or `privilege_change` performed during the off-hours UTC window (`20:00-06:00`).
+2. `IMPOSSIBLE_TRAVEL`
+   A successful login from a different geo within two hours of the user's previous successful login.
+3. `DOWNLOAD_SPIKE`
+   Ten or more `download` or `export` actions by the same user within a 30-minute window.
+4. `FAILED_LOGINS_THEN_SUCCESS`
+   Three or more failed login attempts followed by a successful login within 20 minutes.
+
+Each triggered rule contributes to a combined risk score, which is mapped to severity:
+
+- `low`
+- `medium`
+- `high`
+- `critical`
+
+## AI Features
+
+Gemini is used in two places:
+
+- alert explanation: turns alert context into a short analyst-style summary with suggested next steps
+- upload insight summary: summarizes a processed log file and highlights the top risks found
+
+If the Gemini API key is missing, the model output is malformed, or the request fails, the app falls back to deterministic server-side summaries so the experience still works.
 
 ## Tech Stack
 
-| Layer      | Technology                          |
-|------------|-------------------------------------|
-| Framework  | Next.js 16 (App Router)             |
-| Language   | TypeScript                          |
-| Styling    | Tailwind CSS 4                      |
-| ORM        | Prisma 7                            |
-| Database   | Neon (serverless PostgreSQL)        |
-| AI         | Google Gemini via @google/genai     |
-| Hosting    | Hostinger                           |
+- `Next.js 16` with App Router
+- `React 19`
+- `TypeScript`
+- `Prisma ORM`
+- `Neon / PostgreSQL`
+- `@google/genai` for Gemini integration
+- `Tailwind CSS 4`
 
----
+## Local Setup
 
-## Prerequisites
-
-- Node.js 20 or later
-- A free Neon account at neon.tech (for the PostgreSQL database)
-- A Google AI Studio API key at aistudio.google.com (for Gemini)
-- A Hostinger account for deployment
-
----
-
-## Folder Structure
-
-```
-starter/
-├── app/
-│   ├── api/
-│   │   ├── alerts/
-│   │   │   └── [id]/
-│   │   │       ├── route.ts          ← GET and PATCH a single alert
-│   │   │       └── explain/
-│   │   │           └── route.ts      ← POST to generate Gemini explanation
-│   │   ├── ingest/
-│   │   │   ├── route.ts              ← POST raw JSON events
-│   │   │   └── upload/
-│   │   │       └── route.ts          ← POST a log file (multipart/form-data)
-│   │   ├── integrations/
-│   │   │   └── route.ts              ← GET and POST integration connections
-│   │   ├── seed/
-│   │   │   └── route.ts              ← POST to seed demo data
-│   │   └── reset/
-│   │       └── route.ts              ← POST to clear all data
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx                      ← Main dashboard UI
-├── lib/
-│   ├── types.ts                      ← All shared TypeScript types
-│   ├── db.ts                         ← Prisma client singleton
-│   ├── detection.ts                  ← Rule engine and risk scoring
-│   ├── gemini.ts                     ← Gemini prompt calls and fallbacks
-│   ├── log-file.ts                   ← Log file parser (JSON/CSV/NDJSON/kv)
-│   ├── store.ts                      ← Database operations
-│   └── integrations.ts               ← Integration DB helpers
-├── prisma/
-│   └── schema.prisma                 ← Full database schema
-├── .env.example                      ← Environment variable template
-├── package.json
-├── tsconfig.json
-└── next.config.ts
-```
-
----
-
-## Step 1 — Clone and Install
+### 1. Install dependencies
 
 ```bash
-git clone <your-repo-url>
-cd starter
 npm install
 ```
 
----
+### 2. Configure environment variables
 
-## Step 2 — Set Up Neon Database
-
-1. Go to neon.tech and create a free account
-2. Create a new project (any name, pick the region closest to you)
-3. Open your project and click Connection Details
-4. Copy the Pooled connection string — this becomes your DATABASE_URL
-5. Copy the Direct connection string — this becomes your DIRECT_URL
-
-The pooled connection is used at runtime because it handles many simultaneous
-requests efficiently. The direct connection is used by Prisma CLI for migrations
-because it needs a stable persistent connection.
-
----
-
-## Step 3 — Get a Gemini API Key
-
-1. Go to aistudio.google.com
-2. Click Get API Key and create a new key
-3. Copy the key — this becomes your GEMINI_API_KEY
-
----
-
-## Step 4 — Configure Environment Variables
-
-Copy the example file and fill in your values:
+Copy `.env.example` to `.env` and provide your database and Gemini credentials.
 
 ```bash
-cp .env.example .env
-```
-
-Open .env and add your credentials:
-
-```
-DATABASE_URL="postgresql://USER:PASSWORD@EP-XXXX-pooler.REGION.aws.neon.tech/DBNAME?sslmode=require"
-DIRECT_URL="postgresql://USER:PASSWORD@EP-XXXX.REGION.aws.neon.tech/DBNAME?sslmode=require"
-GEMINI_API_KEY="your-key-here"
+DATABASE_URL="postgresql://...-pooler...sslmode=require"
+DIRECT_URL="postgresql://...sslmode=require"
+GEMINI_API_KEY="your-key"
 GEMINI_MODEL="gemini-3-flash-preview"
 ```
 
----
+Environment variable notes:
 
-## Step 5 — Initialize the Database
+- `DATABASE_URL`: used by the application at runtime
+- `DIRECT_URL`: used by Prisma CLI operations such as `prisma db push`
+- `GEMINI_API_KEY`: enables LLM-generated explanations and upload summaries
+- `GEMINI_MODEL`: optional default model; the UI can also override this per request
+
+### 3. Initialize Prisma
 
 ```bash
 npm run prisma:generate
 npm run prisma:push
 ```
 
-prisma:generate builds the TypeScript client from your schema.
-prisma:push pushes the schema to your Neon database and creates all tables.
-
----
-
-## Step 6 — Run Locally
+### 4. Start the app
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
-Click Seed Demo to load realistic sample data and see the dashboard in action.
-
----
-
-## Detection Rules
-
-The rule engine runs on every ingested event and checks four patterns:
-
-**OFF_HOURS_PRIVILEGED_ACTION** (weight: 35)
-Triggered when a user performs a privileged action (delete, download, export,
-privilege_change) between 20:00 and 06:00 UTC.
-
-**IMPOSSIBLE_TRAVEL** (weight: 40)
-Triggered when a user logs in successfully from two different geographic
-locations within a 2-hour window. Physically impossible travel.
-
-**DOWNLOAD_SPIKE** (weight: 30)
-Triggered when a user performs 10 or more download or export actions within
-any 30-minute sliding window.
-
-**FAILED_LOGINS_THEN_SUCCESS** (weight: 25)
-Triggered when a user has 3 or more failed login attempts followed by a
-successful login within 20 minutes. Classic brute-force signature.
-
-Risk scores from multiple triggered rules are added together, capped at 100,
-and mapped to severity: low (0–34), medium (35–59), high (60–79), critical (80+).
-
----
-
-## AI Integration
-
-Gemini is used in two places:
-
-**Alert Explanation**
-POST /api/alerts/:id/explain
-Sends full alert context to Gemini and returns a headline, explanation
-paragraph, and three concrete next steps for the analyst.
-
-**Upload Insight Summary**
-POST /api/ingest/upload
-After processing a log file, sends the event count, alert count, and top alerts
-to Gemini and returns a summary and risk highlights.
-
-Both endpoints accept an optional model parameter so you can choose between:
-- gemini-3-flash-preview (default, balanced speed and quality)
-- gemini-3.1-pro-preview (deepest analysis, best for critical incidents)
-- gemini-3.1-flash-lite-preview (fastest, lowest cost, high-volume workloads)
-
-If Gemini is unavailable the app falls back to a deterministic rule-based
-summary automatically so the UI never breaks.
-
----
-
-## Supported Log File Formats
-
-The upload endpoint accepts:
-
-| Format       | Example                                                    |
-|--------------|------------------------------------------------------------|
-| JSON array   | [ { "userId": "bob", "action": "download", ... } ]         |
-| JSON object  | { "events": [ ... ] }                                      |
-| NDJSON       | One JSON object per line                                   |
-| CSV          | Headers in first row, userId/user/user_id column required  |
-| Key=value    | userId=bob action=download geo="Tokyo, JP"                 |
-
-Max file size is 5 MB.
-
----
-
-## API Reference
-
-| Method | Endpoint                      | Description                        |
-|--------|-------------------------------|------------------------------------|
-| POST   | /api/ingest                   | Ingest a JSON event array          |
-| POST   | /api/ingest/upload            | Upload and parse a log file        |
-| GET    | /api/alerts                   | List all alerts and stats          |
-| GET    | /api/alerts/:id               | Get alert with full context        |
-| PATCH  | /api/alerts/:id               | Update status or add analyst note  |
-| POST   | /api/alerts/:id/explain       | Generate Gemini explanation        |
-| GET    | /api/integrations             | List integration connections       |
-| POST   | /api/integrations             | Create or update an integration    |
-| POST   | /api/seed                     | Reset and load demo data           |
-| POST   | /api/reset                    | Clear all stored data              |
-
----
-
-## Deploying to Hostinger
-
-1. Push your project to a GitHub repository
-2. Log in to Hostinger and go to your hosting dashboard
-3. Connect your GitHub repository
-4. Set your environment variables in the Hostinger environment config panel:
-   - DATABASE_URL
-   - DIRECT_URL
-   - GEMINI_API_KEY
-   - GEMINI_MODEL
-5. Hostinger will detect the Next.js project, run the build, and deploy
-
-Important: Do NOT run prisma:push in production manually. Set up a build
-hook or run it once from your local machine pointing at the production
-DATABASE_URL to initialize your production schema.
-
----
+Open [http://localhost:3000](http://localhost:3000).
 
 ## Available Scripts
 
 ```bash
-npm run dev              # Start local development server
-npm run build            # Production build
-npm run start            # Start production server
-npm run lint             # Run ESLint
-npm run prisma:generate  # Regenerate Prisma TypeScript client
-npm run prisma:push      # Push schema changes to the database
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run prisma:generate
+npm run prisma:push
 ```
 
----
+## API Reference
 
-## Data Model Summary
+### `POST /api/ingest`
 
-**Event** — a raw normalized log event from any source
-**Anomaly** — a single rule violation detected on an event
-**Alert** — raised when anomalies are found; links to the triggering event
-**AlertAnomaly** — join table connecting alerts to their anomaly signals
-**IntegrationConnection** — stores connection state for cloud provider integrations
+Ingests an array of events or an object with an `events` array.
 
----
+Accepted body shapes:
 
-## Environment Variables Reference
+```json
+[
+  {
+    "userId": "charlie",
+    "eventType": "auth",
+    "action": "login_failed",
+    "geo": "Berlin, DE",
+    "resource": "vpn"
+  }
+]
+```
 
-| Variable      | Required | Description                                        |
-|---------------|----------|----------------------------------------------------|
-| DATABASE_URL  | Yes      | Pooled Neon connection string (runtime use)        |
-| DIRECT_URL    | Yes      | Direct Neon connection string (Prisma CLI only)    |
-| GEMINI_API_KEY| Yes      | Google AI Studio API key                           |
-| GEMINI_MODEL  | No       | Default Gemini model ID (overridable in the UI)    |
+```json
+{
+  "events": [
+    {
+      "userId": "charlie",
+      "eventType": "auth",
+      "action": "login_success",
+      "geo": "Singapore, SG",
+      "resource": "vpn"
+    }
+  ]
+}
+```
+
+Minimum required fields per event:
+
+- `userId`
+- `eventType`
+- `action`
+
+Common optional fields:
+
+- `timestamp`
+- `deviceId`
+- `ip`
+- `geo`
+- `resource`
+- `role`
+- `metadata`
+- `raw`
+
+### `POST /api/ingest/upload`
+
+Accepts a `multipart/form-data` upload with:
+
+- `file`: the log file to parse
+- `model`: optional Gemini model override
+
+Upload constraints:
+
+- max file size: `5 MB`
+- supported formats:
+  - JSON array or `{ "events": [...] }`
+  - NDJSON
+  - CSV
+  - key/value log lines such as `userId=bob action=download geo="Tokyo, JP"`
+
+The response includes:
+
+- detected file format
+- parsed event count
+- alert count
+- parser warnings
+- AI-generated upload insight summary
+
+### `GET /api/alerts`
+
+Returns:
+
+- system stats
+- current alerts list
+
+### `GET /api/alerts/:id`
+
+Returns alert context, including:
+
+- linked anomalies
+- trigger event metadata
+- related events timeline
+
+### `PATCH /api/alerts/:id`
+
+Updates an alert with:
+
+- `status`: `open`, `investigating`, or `resolved`
+- `note`: a new analyst note to append
+
+### `POST /api/alerts/:id/explain`
+
+Generates an alert explanation. Optional body:
+
+```json
+{
+  "model": "gemini-3-flash-preview"
+}
+```
+
+### `GET /api/integrations`
+
+Lists stored integration connection states.
+
+### `POST /api/integrations`
+
+Upserts an integration connection. Supported providers:
+
+- `aws`
+- `gcp`
+- `azure`
+- `github`
+- `slack`
+
+Supported statuses:
+
+- `connected`
+- `disconnected`
+- `error`
+
+### `POST /api/seed`
+
+Resets the current store and loads demo events.
+
+### `POST /api/reset`
+
+Clears persisted application data.
+
+## Log Parsing Behavior
+
+Uploaded log files are normalized into the app's ingestion shape. The parser is flexible and attempts to map common aliases such as:
+
+- `user`, `user_id` -> `userId`
+- `type`, `category` -> `eventType`
+- `eventAction`, `event`, `operation` -> `action`
+- `time`, `ts` -> `timestamp`
+- `device` -> `deviceId`
+- `sourceIp` -> `ip`
+- `location` -> `geo`
+- `target` -> `resource`
+- `userRole` -> `role`
+
+Unsupported or incomplete rows are skipped with warnings when possible.
+
+## Data Model
+
+The Prisma schema defines the following main entities:
+
+- `Event`
+- `Anomaly`
+- `Alert`
+- `AlertAnomaly`
+- `IntegrationConnection`
+
+Important enums include:
+
+- `EventType`
+- `EventAction`
+- `AlertStatus`
+- `DetectionRule`
+- `AlertSeverity`
+- `IntegrationProvider`
+- `IntegrationStatus`
+
+See `prisma/schema.prisma` for the full model.
+
+## Project Structure
+
+Key files and directories:
+
+- `app/page.tsx`: main dashboard UI
+- `app/api/**`: API routes for ingest, alerts, upload, seed, reset, and integrations
+- `lib/detection.ts`: core rule engine and risk scoring
+- `lib/log-file.ts`: uploaded log parsing and normalization
+- `lib/gemini.ts`: Gemini prompts, response parsing, and fallbacks
+- `lib/store.ts`: persistence and application data operations
+- `prisma/schema.prisma`: database schema
+
+## Development Notes
+
+- Prisma uses PostgreSQL as the datasource.
+- Runtime database access uses Neon through `@prisma/adapter-neon`.
+- Prisma CLI configuration uses `DIRECT_URL`.
+- The alerts API is configured as dynamic to keep dashboard data fresh.
+- AI model selection is stored in local browser storage under `alabama:ai:model`.
+
+## Example Use Cases
+
+- demoing a full-stack cybersecurity portfolio project
+- testing rule-based anomaly detection on synthetic identity or file activity logs
+- experimenting with LLM-assisted incident explanation workflows
+- showcasing a modern `Next.js` app with database, API, and AI integration
+
+## Future Improvement Ideas
+
+- authentication and analyst roles
+- background job processing for large uploads
+- real provider credential flows for integrations
+- richer rule configuration and threshold tuning
+- charts, trend lines, and alert timelines
+- exportable investigation reports
